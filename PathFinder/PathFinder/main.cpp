@@ -44,6 +44,13 @@ int main()
 				}
 				grid->clickCheck();
 			}
+			if (event.type ==  sf::Event::KeyPressed)
+			{
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
+				{
+					std::cout << "Suppose to Reset the Game when this Key is Pressed" << std::endl;
+				}
+			}
 		}
 
 		grid->display();
