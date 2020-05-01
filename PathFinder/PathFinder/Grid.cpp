@@ -9,36 +9,112 @@
 Grid::Grid(int r, int c, int s, sf::RenderWindow* w) // Takes in the rowSize, ColSize, blockSize, and Reference to the main draw window
 	: m_rows(r), m_columns(c), m_size(s), m_window(w)
 {
+	buttonInit();
 	for (int i = 0; i < m_rows; i++)
 	{
 		for (int j = 0; j < m_columns; j++)
 		{
-			bgGridNodes[i][j] = new Node(BLOCKSIZE, sf::Color::White); // ?? ***** Pretty sure this will cause a MEMORY LEAK? ***** ??
+			bgGridNodes[i][j] = new Node(BLOCKSIZE, sf::Color(150, 150, 150)); // ?? ***** Pretty sure this will cause a MEMORY LEAK? ***** ??
 			bgGridNodes[i][j]->parent_i = i;
 			bgGridNodes[i][j]->parent_j = j;
 			bgGridNodes[i][j]->nodeRect.setPosition(sf::Vector2f(i * BLOCK_DISTANCE + 5, j * BLOCK_DISTANCE + 5)); // sets each nodes postions, with there distance apart from eachother
 		}
 	}
+	srand(time(NULL));
+	start_node();
+	end_node();
 }
 
-Node* Grid::lowestFCost()
+void Grid::buttonInit()
 {
-	Node* lowestFCostNode  = m_openList[0];
+	if (!button.loadFromFile("Images/startbutton.png"))
+	{
+		std::cout << "Could Not Load/Find the Button Texture Image" << std::endl;
+	}
+	button.setSmooth(true);
+	buttonSprite.setTexture(button);
+	buttonSprite.setScale(sf::Vector2f(0.55f, 0.55f));
+	buttonSprite.setPosition(sf::Vector2f(960, 20));
+}
+
+Node* Grid::lowestFCost() // ******ERROR when there is a fCost that is the smallest BUT its a NONWALKABLE NODE, so we have to choose the next lowest fCost until we get a walkable one.....********
+{
+	Node* lowestFCostNode = m_openList[0];
 	for (auto i : m_openList)
 	{
-		if (i->fCost <= lowestFCostNode->fCost)
+		if (i->fCost < lowestFCostNode->fCost) // Skips Here When Evaluating, since One of the Nodes are being Appneded AGAIN causing it too choose that node. since fCost is smaller
 		{
+			if (!i->isWalkable)
+			{
+				continue;
+			}
+
 			lowestFCostNode = i;
 		}
 	}
 	return lowestFCostNode;
 }
 
+void Grid::isClicked()
+	{
+		sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
+		for (unsigned int i = 0; i < m_rows; i++)
+		{
+			for (unsigned int j = 0; j < m_columns; j++)
+			{
+				if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && bgGridNodes[i][j]->clicked)
+				{
+					bgGridNodes[i][j]->clicked = false;
+					bgGridNodes[i][j]->isWalkable = true;
+				}
+				else if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && !bgGridNodes[i][j]->clicked)
+				{
+					bgGridNodes[i][j]->clicked = true;
+					bgGridNodes[i][j]->isWalkable = false;
+				}
+			}
+		}
+	}
+
+void Grid::buttonToggle()
+{
+	if (buttonState)
+	{
+		buttonState = false;
+	}
+	else
+	{
+		buttonState = true;
+	}
+
+}
+
+bool Grid::StartButtonClicked()
+{
+	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
+	if (buttonSprite.getGlobalBounds().contains(mousePos.x, mousePos.y) && sf::Mouse::isButtonPressed(sf::Mouse::Left))
+	{
+		return true;
+	}
+	return false;
+}
+
+bool Grid::isNOTclosedList(Node* n)
+{
+	for (auto i : m_closedList)
+	{
+		if (i == n)
+		{
+			return false;
+		}
+	 }
+	return true;
+}
+
+// Error to Fix : if its already in the CLOSEDLIST dont APPEND it to the OPEN_LIST. b/c its getting re-evalauted and ReChosen as the LowestFCost Node.
 void Grid::checkNeighborNodes(Node* currNode)
 {
-	std::cout << "CurrentNode: (" << currNode->parent_i << ", " << currNode->parent_j << ")" << std::endl;
 
-	//m_openList.clear();
 	std::deque<Node*> childrenNodes; // Where I can store the Children Nodes Surrounding the Current Node.
 	if (isValid(currNode->parent_i, currNode->parent_j)) // If the Node is a Valid node; meaning its within [m_rows][m_columns], then enter
 	{
@@ -51,7 +127,6 @@ void Grid::checkNeighborNodes(Node* currNode)
 		//	             /     |     \
 		//              /      |      \
 		//     n[i-1][j+1]   n[i][j+1]   n[i+1][j+1]
-
 
 		// Top Left Node From Current Position
 		if (isValid(currNode->parent_i - 1, currNode->parent_j - 1))
@@ -112,51 +187,55 @@ void Grid::checkNeighborNodes(Node* currNode)
 		}
 	}
 
+
+
 	for (auto i : childrenNodes) // Loop Through Children Nodes
 	{
-
-		for (auto k : m_closedList) // if a child is in the closed List, Conitue cause we dont like wasting time
+		for (auto j : m_closedList) // if a child is in the closed List, Conitue cause we dont like wasting time
 		{
-			if (i == k)
+			if (i == j)
 			{
 				continue;
 			}
 		}
 
-		for (auto j : m_openList)
+		i->calculategCost(i, m_startNode);
+		i->calculatehCost(i, m_endNode);
+		i->calculatefCost();
+
+		for (auto k : m_openList)
 		{
-			if (i == j && (i->gCost > j->gCost))
+			if (i == k && (i->gCost > k->gCost))
 			{
 				continue;
 			}
 		}
-			i->calculategCost(i, m_startNode);
-			i->calculatehCost(i, m_endNode);
-			i->calculatefCost();
+
+		if (i->isWalkable && isNOTclosedList(i))
+		{
 			m_openList.push_back(i);
+		}
 	}
-
 }
 
-// One problem is: repeatidly checking the same node and calc scores
+// One problem is: mOpenList is appending the same start Node and LowestFCost keeps getting assigned too the starting node..... ENSURE that the m_openList cannot append a node thats already
+//	in the closedList...
 void Grid::aStarAlgorithm()
 {
 	if (!found)
 	{
 		if (startNodeAdded && endNodeAdded) // If Start and End Nodes are set
 		{
-			Node currentNode;
-
-			while (!m_openList.empty() && m_openList.size() <= (m_rows*m_columns)) // loop while the openList is not empty 
+			while (!m_openList.empty()) // loop while the openList is not empty 
 			{
 				Node* lowerestNode = lowestFCost(); // grabs the lowest fCost and sets it too the currentNode.
-
 				std::deque<Node*>::iterator it = m_openList.begin(); // Find that current node
-				if (it != m_openList.end())
+				for(it; it!=m_openList.end(); it++)
 				{
 					if (lowerestNode == *it) // Find the Loweserest node in the openList
 					{
 						m_openList.erase(it); // Find the it, now delete it from the m-openlists
+						break;
 					}
 				}
 
@@ -181,55 +260,23 @@ void Grid::aStarAlgorithm()
 	}
 }
 
-void Grid::add_start_node()
+void Grid::start_node()
 {
-	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
-	for (int i = 0; i < m_rows; i++)
-	{
-		for (int j = 0; j < m_columns; j++)
-		{
-			if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && sf::Mouse::isButtonPressed(sf::Mouse::Left))
-			{
-				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color::Blue); // set the selected nodes color
-				bgGridNodes[i][j]->startNode = true; // sets the startNode variable inside the node to true, indicating its the startnode
-				startNodeAdded = true;
-				m_startNode = bgGridNodes[i][j];
-				m_openList.push_back(bgGridNodes[i][j]);	// pushes that startnode on the openList making it the only node in that list, for now
-				break;
-			}
-		}
-	}
+	int start_i = 1; // rand() % (m_rows);
+	int start_j = 1; // rand() % (m_columns);
+	m_startNode = bgGridNodes[start_i][start_j];
+	std::cout << "StartingNode: (" << m_startNode->parent_i << ", " << m_startNode->parent_j << ")" << std::endl;
+	m_openList.push_back(m_startNode);
+	startNodeAdded = true;
 }
 
-
-void Grid::add_end_node()
+void Grid::end_node()
 {
-	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
-	for (int i = 0; i < m_rows; i++)
-	{
-		for (int j = 0; j < m_columns; j++)
-		{
-			if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && sf::Mouse::isButtonPressed(sf::Mouse::Left))
-			{
-				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color::Red); // sets end node color	
-				bgGridNodes[i][j]->startNode = true; // variable indicationg its the end node
-				m_endNode = bgGridNodes[i][j]; //sets the private var m_endNode in grid class to that endNode ..
-				endNodeAdded = true;
-				break;
-			}
-		}
-	}
-}
-
-void Grid::clickCheck()   // loops through the bgGridnodes and checks if that gridNode has been clicked on
-{
-	for (int i = 0; i < m_rows; i++)
-	{
-		for (int j = 0; j < m_columns; j++)
-		{ 
-			bgGridNodes[i][j]->isClicked(*bgGridNodes[i][j], m_window); // isClicked is a method from the Node class
-		}
-	}
+	int end_i = 22; //rand() % (m_rows);
+	int end_j = 22; //rand() % (m_columns);
+	m_endNode = bgGridNodes[end_i][end_j];
+	std::cout << "EndNode: (" << m_endNode->parent_i << ", " << m_endNode->parent_j << ")" << std::endl;
+	endNodeAdded = true;
 }
 
 void Grid::display()
@@ -238,31 +285,43 @@ void Grid::display()
 	{
 		for (int j = 0; j < m_columns; j++)
 		{
-			m_window->draw(bgGridNodes[i][j]->nodeRect); // draws the nodes of the Background
+			m_window->draw(buttonSprite);
+
 			if (bgGridNodes[i][j]->clicked && !bgGridNodes[i][j]->startNode && !bgGridNodes[i][j]->endNode) // check if a bgNode was clicked and its not the start or end node
 			{
 				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color::Black); // sets the clicked node to the color black and marks it as none walkable for the search algorithms
 			}
 			else if (!bgGridNodes[i][j]->clicked && !bgGridNodes[i][j]->startNode && !bgGridNodes[i][j]->endNode) // check if a bgNode was clicked and its not the start or end node
 			{
-				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color::White); // sets the clicked node to the color black and marks it as none walkable for the search algorithms
+				bgGridNodes[i][j]->nodeRect.setOutlineThickness(0.5f);
+				bgGridNodes[i][j]->nodeRect.setOutlineColor(sf::Color(220, 220, 220));
+				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color(150, 150, 150)); // sets the clicked node to the color black and marks it as none walkable for the search algorithms
 			}
 
-			for (auto i : m_openList)
+			if (startNodeAdded) // Draws the StartNode, IF added
 			{
-				i->nodeRect.setFillColor(sf::Color::Cyan);
-				m_window->draw(i->nodeRect);
+				m_startNode->nodeRect.setFillColor(sf::Color::Cyan);
+				m_window->draw(m_startNode->nodeRect);
+			}
+			if (endNodeAdded) // Draws the EndNode If added
+			{
+				m_endNode->nodeRect.setFillColor(sf::Color::Red);
+				m_window->draw(m_endNode->nodeRect);
 			}
 
-			if (found)
+			if (found) // Draw Path if END has been reached
 			{
 				for (auto i : m_path)
 				{
-					i->nodeRect.setFillColor(sf::Color::Green);
+					i->nodeRect.setOutlineThickness(0.2);
+					i->nodeRect.setOutlineColor(sf::Color(60, 60, 60));
+					i->nodeRect.setFillColor(sf::Color::Cyan);
 					m_window->draw(i->nodeRect);
 				}
 				exit; // Successfully Drawn the Path and now exiting.. Or I could reset and redraw... Later after we've finxed the bugs
 			}
+
+			m_window->draw(bgGridNodes[i][j]->nodeRect); // draws the nodes of the Background
 		}
 	}
 }
@@ -273,5 +332,5 @@ bool Grid::isValid(int parent_i, int parent_j)
 	{
 		return false;
 	}
-	return (parent_i >= 0) && (parent_i <= m_rows) && (parent_j >= 0) && (parent_j <= m_columns);
+	return (parent_i >= 0) && (parent_i <= m_rows) && (parent_j >= 0) && (parent_j <= m_columns) && bgGridNodes[parent_i][parent_j]->isWalkable;
 }

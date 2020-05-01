@@ -14,6 +14,7 @@ const int ROWS_COLS_SIZE = 24; // 30
 const int BLOCKSIZE = 35;      // 25
 const int BLOCK_DISTANCE = 40; // 30
 
+
 struct Node // node structure
 {
 public:
@@ -34,22 +35,7 @@ public:
 	bool endNode = false;
 	bool isWalkable = true;
 	bool clicked = false;
-	void isClicked(Node node, sf::RenderWindow* win)
-	{
-		sf::Vector2i mousePos = sf::Mouse::getPosition(*win);
-		if (node.nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && sf::Mouse::isButtonPressed(sf::Mouse::Left))
-		{
-			if (clicked)
-			{
-				clicked = false;
-			}
-			else if (!clicked)
-			{
-				isWalkable = false;
-				clicked = true;
-			}
-		}
-	}
+
 
 	bool operator==(const Node& b)
 	{
@@ -84,11 +70,16 @@ public:
 	Grid(int, int, int, sf::RenderWindow*);
 	void aStarAlgorithm();
 	void checkNeighborNodes(Node*);
-	void clickCheck();
-	void add_start_node();
-	void add_end_node();
+	void start_node();
+	void end_node();
+	void buttonInit();
+	bool getbuttonState() { return buttonState; }
+	bool StartButtonClicked();
+	void buttonToggle();
 	Node* lowestFCost();
 	bool isValid(int, int); // Utility Function that will Alow me Check if a node is valid or not. [row, column]
+	bool isNOTclosedList(Node*);
+	void isClicked();
 	void display();
 
 private:
@@ -96,6 +87,7 @@ private:
 	int m_rows;
 	int m_columns;
 	int m_size;
+	bool buttonState = false;
 	bool startNodeAdded = false;
 	bool endNodeAdded = false;
 	sf::RenderWindow* m_window;
@@ -105,6 +97,8 @@ private:
 	std::deque<Node*> m_openList;
 	std::deque<Node*> m_closedList;
 	std::deque<Node*> m_path;
+	sf::Texture button;
+	sf::Sprite buttonSprite;
 
 };
 

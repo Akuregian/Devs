@@ -26,23 +26,16 @@ int main()
 			{
 				window.close();
 			}
-			if (sf::Event::MouseButtonPressed)
+			if (event.type == sf::Event::MouseButtonPressed)
 			{
-				bool one = false;
-				if (click == 0 && sf::Mouse::isButtonPressed(sf::Mouse::Left) && !startNodeSelected)
+				if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
 				{
-					startNodeSelected = true;
-					grid->add_start_node();
-					click++;
-					one = true;
+					if (grid->StartButtonClicked())
+					{
+						grid->buttonToggle();
+					}
+				grid->isClicked();
 				}
-				if (click == 1 && sf::Mouse::isButtonPressed(sf::Mouse::Left) && !endNodeSelected && !one)
-				{
-					endNodeSelected = true;
-					grid->add_end_node();
-					click++;
-				}
-				grid->clickCheck();
 			}
 			if (event.type ==  sf::Event::KeyPressed)
 			{
@@ -54,7 +47,10 @@ int main()
 		}
 
 		grid->display();
-		grid->aStarAlgorithm();
+		if(grid->getbuttonState())
+		{
+			grid->aStarAlgorithm();
+		}
 		window.display();
 	}
 
