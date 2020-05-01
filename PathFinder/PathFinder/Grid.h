@@ -22,7 +22,7 @@ public:
 	sf::Color blockcolor; // The Color of the created block
 	sf::RectangleShape nodeRect; // the Rectangle shape 
 	Node() { blocksize = 25; blockcolor = sf::Color::Cyan; }
-	Node(int s, sf::Color col ) : blocksize(s), blockcolor(col)
+	Node(int s, sf::Color col) : blocksize(s), blockcolor(col)
 	{
 		nodeRect.setFillColor(blockcolor); nodeRect.setSize(sf::Vector2f(blocksize, blocksize));
 	}
@@ -58,7 +58,7 @@ public:
 	{
 		// use my man, pythagorus's Formula to calculate dist from currNode to endNode
 		currnode->hCost = std::sqrt((std::pow(currnode->nodeRect.getPosition().x - endNode->nodeRect.getPosition().x, 2) +
-									std::pow(currnode->nodeRect.getPosition().y - endNode->nodeRect.getPosition().y, 2)));
+			std::pow(currnode->nodeRect.getPosition().y - endNode->nodeRect.getPosition().y, 2)));
 		hCost = currnode->hCost / 10;
 	}
 };

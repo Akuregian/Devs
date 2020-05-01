@@ -34,20 +34,22 @@ int main()
 					{
 						grid->buttonToggle();
 					}
-				grid->isClicked();
+					grid->isClicked();
 				}
 			}
-			if (event.type ==  sf::Event::KeyPressed)
+			if (event.type == sf::Event::KeyPressed)
 			{
 				if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
 				{
 					std::cout << "Suppose to Reset the Game when this Key is Pressed" << std::endl;
+					grid.reset();
+				    grid = std::make_unique<Grid>(ROWS_COLS_SIZE, ROWS_COLS_SIZE, BLOCKSIZE, &window); // smart pointer
 				}
 			}
 		}
 
 		grid->display();
-		if(grid->getbuttonState())
+		if (grid->getbuttonState())
 		{
 			grid->aStarAlgorithm();
 		}
@@ -56,6 +58,3 @@ int main()
 
 	return 0;
 }
-
-
-
