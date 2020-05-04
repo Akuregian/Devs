@@ -9,6 +9,11 @@
 Grid::Grid(int r, int c, int s, sf::RenderWindow* w) // Takes in the rowSize, ColSize, blockSize, and Reference to the main draw window
 	: m_rows(r), m_columns(c), m_size(s), m_window(w)
 {
+	if (!font.loadFromFile("Fonts/OpenSans-ExtraBold.ttf"))
+	{
+		std::cout << "Error Loading Font" << std::endl;
+		exit;
+	}
 	buttonInit();
 	for (int i = 0; i < m_rows; i++)
 	{
@@ -37,7 +42,33 @@ void Grid::buttonInit()
 	buttonSprite.setPosition(sf::Vector2f(960, 20));
 }
 
-Node* Grid::lowestFCost() // ******ERROR when there is a fCost that is the smallest BUT its a NONWALKABLE NODE, so we have to choose the next lowest fCost until we get a walkable one.....********
+
+void Grid::closedList_lowestFCost(Node* lastNode) 
+{
+	m_path.push_back(lastNode);
+	m_path.push_back(m_startNode);
+	int maxVal = INT_MAX;
+	int path_cost = 0;
+	int index = 1;
+	int maxG = m_closedList[m_closedList.size() - 1]->gCost + 1;
+	while (index != maxG) // Index is theGcost Values im looking at
+	{
+		for (auto i : m_closedList) // Loop Through The Closed List searching for the gCost = Index
+		{
+			if(i->gCost == index) // If that gCost == Index we are looking for
+			{
+				if (i->fCost <= maxVal) // Check too see if its the smallest of the nodes were looking at
+				{
+					m_path.push_back(i);
+					break;
+				}
+			}
+		}
+		index++;
+	}
+}
+
+Node* Grid::lowestFCost()
 {
 	Node* lowestFCostNode = m_openList[0];
 	for (auto i : m_openList)
@@ -57,11 +88,11 @@ Node* Grid::lowestFCost() // ******ERROR when there is a fCost that is the small
 
 void Grid::isClicked()
 {
-	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
 	for (unsigned int i = 0; i < m_rows; i++)
 	{
 		for (unsigned int j = 0; j < m_columns; j++)
 		{
+			sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
 			if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && bgGridNodes[i][j]->clicked)
 			{
 				bgGridNodes[i][j]->clicked = false;
@@ -89,6 +120,38 @@ void Grid::buttonToggle()
 
 }
 
+void Grid::toggleNodePickup()
+{
+	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
+	if (m_endNode->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y))
+	{
+		if(m_endNode->grabbed)
+		{
+			m_endNode->grabbed = false;
+			//m_endNode = closestNode();
+		}
+		else
+		{
+			m_endNode->nodeRect.setPosition(sf::Vector2f(mousePos.x - BLOCKSIZE / 2, mousePos.y - BLOCKSIZE / 2));
+			m_endNode->grabbed = true;
+		}
+	} 
+
+	if (m_startNode->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y))
+	{
+		if (m_startNode->grabbed)
+		{
+			m_startNode->grabbed = false;
+			//m_startNode = closestNode();
+		}
+		else
+		{
+			m_startNode->nodeRect.setPosition(sf::Vector2f(mousePos.x - BLOCKSIZE / 2, mousePos.y - BLOCKSIZE / 2));
+			m_startNode->grabbed = true;
+		}
+	}
+}
+
 bool Grid::StartButtonClicked()
 {
 	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
@@ -99,22 +162,32 @@ bool Grid::StartButtonClicked()
 	return false;
 }
 
-bool Grid::isNOTclosedList(Node* n)
+bool Grid::isopenList(Node* n)
+{
+	for (auto i : m_openList)
+	{
+		if (i == n)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Grid::isclosedList(Node* n)
 {
 	for (auto i : m_closedList)
 	{
 		if (i == n)
 		{
-			return false;
+			return true;
 		}
 	}
-	return true;
+	return false;
 }
 
-// Error to Fix : if its already in the CLOSEDLIST dont APPEND it to the OPEN_LIST. b/c its getting re-evalauted and ReChosen as the LowestFCost Node.
 void Grid::checkNeighborNodes(Node* currNode)
 {
-
 	std::deque<Node*> childrenNodes; // Where I can store the Children Nodes Surrounding the Current Node.
 	if (isValid(currNode->parent_i, currNode->parent_j)) // If the Node is a Valid node; meaning its within [m_rows][m_columns], then enter
 	{
@@ -129,51 +202,63 @@ void Grid::checkNeighborNodes(Node* currNode)
 		//     n[i-1][j+1]   n[i][j+1]   n[i+1][j+1]
 
 		// Top Left Node From Current Position
-		if (isValid(currNode->parent_i - 1, currNode->parent_j - 1))
-		{
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]);
-		}
+	//	if (isValid(currNode->parent_i - 1, currNode->parent_j - 1) && !isopenList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]) 
+	//		&& !isclosedList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]) )
+	//	{
+	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]);
+	//	}
 
 		// Top Middle Node From Current Position
-		if (isValid(currNode->parent_i, currNode->parent_j - 1))
+		if (isValid(currNode->parent_i, currNode->parent_j - 1) && !isopenList(bgGridNodes[currNode->parent_i][currNode->parent_j - 1]) 
+			&& !isclosedList(bgGridNodes[currNode->parent_i][currNode->parent_j - 1]) )
 		{
+		//	bgGridNodes[currNode->parent_i][currNode->parent_j - 1]->setParentNode(currNode);
 			childrenNodes.push_back(bgGridNodes[currNode->parent_i][currNode->parent_j - 1]);
 		}
 
 		// Top Right Node From Current Position
-		if (isValid(currNode->parent_i + 1, currNode->parent_j - 1))
-		{
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]);
-		}
+	//	if (isValid(currNode->parent_i + 1, currNode->parent_j - 1) && !isopenList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]) 
+	//		&& !isclosedList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]) )
+	//	{
+	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]);
+	//	}
 
 		// Middle Left Node From Current Position
-		if (isValid(currNode->parent_i - 1, currNode->parent_j))
+		if (isValid(currNode->parent_i - 1, currNode->parent_j) && !isopenList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j]) 
+			&& !isclosedList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j]) )
 		{
+		//	bgGridNodes[currNode->parent_i - 1][currNode->parent_j]->setParentNode(currNode);
 			childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j]);
 		}
 
 		// Middle Right Node From Current Position
-		if (isValid(currNode->parent_i + 1, currNode->parent_j))
+		if (isValid(currNode->parent_i + 1, currNode->parent_j)&& !isopenList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j]) 
+			&& !isclosedList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j]) )
 		{
+			//bgGridNodes[currNode->parent_i + 1][currNode->parent_j]->setParentNode(currNode);
 			childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j]);
 		}
 
 		// Bottom Left Node From Current Position
-		if (isValid(currNode->parent_i - 1, currNode->parent_j + 1))
-		{
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]);
-		}
+	//	if (isValid(currNode->parent_i - 1, currNode->parent_j + 1) && !isopenList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]) 
+	//		&& !isclosedList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]) )
+	//	{
+	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]);
+	//	}
 
 		// Bottom Middle Node From Current Position
-		if (isValid(currNode->parent_i, currNode->parent_j + 1))
+		if (isValid(currNode->parent_i, currNode->parent_j + 1) && !isopenList(bgGridNodes[currNode->parent_i][currNode->parent_j + 1])
+			&& !isclosedList(bgGridNodes[currNode->parent_i][currNode->parent_j + 1]) )
 		{
+			//bgGridNodes[currNode->parent_i][currNode->parent_j + 1]->setParentNode(currNode);
 			childrenNodes.push_back(bgGridNodes[currNode->parent_i][currNode->parent_j + 1]);
 		}
 		// Bottom Right Node From Current Position
-		if (isValid(currNode->parent_i + 1, currNode->parent_j + 1))
-		{
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1]);
-		}
+	//	if (isValid(currNode->parent_i + 1, currNode->parent_j + 1)&& !isopenList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1 ]) 
+	//		&& !isclosedList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1 ]) )
+	//	{
+	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1]);
+	//	}
 	}
 	else
 	{
@@ -187,35 +272,21 @@ void Grid::checkNeighborNodes(Node* currNode)
 		}
 	}
 
-
-
 	for (auto i : childrenNodes) // Loop Through Children Nodes
 	{
 		for (auto j : m_closedList) // if a child is in the closed List, Conitue cause we dont like wasting time
 		{
-			if (i == j)
+			if (i->isWalkable && !isopenList(i) && !isclosedList(i))
 			{
-				continue;
+				i->gCost += currNode->gCost + 1;
+				i->calculatehCost(i, m_endNode);
+				i->calculatefCost();
+				m_openList.push_back(i);
 			}
-		}
-
-		i->calculategCost(i, m_startNode);
-		i->calculatehCost(i, m_endNode);
-		i->calculatefCost();
-
-		for (auto k : m_openList)
-		{
-			if (i == k && (i->gCost > k->gCost))
-			{
-				continue;
-			}
-		}
-
-		if (i->isWalkable && isNOTclosedList(i))
-		{
-			m_openList.push_back(i);
 		}
 	}
+
+	std::cout << "CurrNode : GCost-> " << currNode->gCost << std::endl;
 }
 
 // One problem is: mOpenList is appending the same start Node and LowestFCost keeps getting assigned too the starting node..... ENSURE that the m_openList cannot append a node thats already
@@ -229,31 +300,33 @@ void Grid::aStarAlgorithm()
 			while (!m_openList.empty()) // loop while the openList is not empty 
 			{
 				Node* lowerestNode = lowestFCost(); // grabs the lowest fCost and sets it too the currentNode.
-				std::deque<Node*>::iterator it = m_openList.begin(); // Find that current node
-				for (it; it != m_openList.end(); it++)
+				if (lowerestNode == m_endNode)
 				{
-					if (lowerestNode == *it) // Find the Loweserest node in the openList
+					std::cout << "Congrats, We have found the END!" << std::endl;
+					//construct_path(lowerestNode);
+					for (auto i : m_closedList)
 					{
-						m_openList.erase(it); // Find the it, now delete it from the m-openlists
+						closedList_lowestFCost(lowerestNode);
+						//m_path.push_back(i);
+					}
+					found = true;
+					break;
+				}
+
+				std::deque<Node*>::iterator it = m_openList.begin(); // Find that current node
+				for (
+					it; it != m_openList.end(); it++)
+				{
+					// Find the Loweserest node in the openList, Delete it.
+					if (lowerestNode == *it) 
+					{
+						m_openList.erase(it); // Found, now delete it from the m-openlists
 						break;
 					}
 				}
 
 				// Add It too the closedList
 				m_closedList.push_back(lowerestNode);
-
-				if (lowerestNode == m_endNode)
-				{
-					std::cout << "Congrats, We have found the END!" << std::endl;
-					std::deque<Node*>::reverse_iterator i = m_closedList.rbegin();
-					for (i = m_closedList.rbegin(); i != m_closedList.rend(); i++)
-					{
-						m_path.push_back(*i);
-					}
-
-					found = true;
-					break;
-				}
 
 				checkNeighborNodes(lowerestNode);
 			}
@@ -263,8 +336,8 @@ void Grid::aStarAlgorithm()
 
 void Grid::start_node()
 {
-	int start_i = 1; // rand() % (m_rows);
-	int start_j = 1; // rand() % (m_columns);
+	int start_i = 6; // rand() % (m_rows);
+	int start_j = 9; // rand() % (m_columns);
 	m_startNode = bgGridNodes[start_i][start_j];
 	m_openList.push_back(m_startNode);
 	startNodeAdded = true;
@@ -272,8 +345,8 @@ void Grid::start_node()
 
 void Grid::end_node()
 {
-	int end_i = 22; //rand() % (m_rows);
-	int end_j = 22; //rand() % (m_columns);
+	int end_i = 10; //rand() % (m_rows);
+	int end_j = 9; //rand() % (m_columns);
 	m_endNode = bgGridNodes[end_i][end_j];
 	endNodeAdded = true;
 }
@@ -302,7 +375,18 @@ void Grid::display()
 
 	if (startNodeAdded) // Draws the StartNode, IF added
 	{
-		m_startNode->nodeRect.setFillColor(sf::Color::Cyan);
+
+		if (m_startNode->grabbed)
+		{
+			m_startNode->nodeRect.setFillColor(sf::Color(93, 138, 255));
+			sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
+			m_startNode->nodeRect.setPosition(sf::Vector2f(mousePos.x - BLOCKSIZE / 2, mousePos.y - BLOCKSIZE / 2));
+		}
+		else if (!m_startNode->grabbed)
+		{
+			m_startNode->nodeRect.setFillColor(sf::Color(93, 138, 169, 200));
+		}
+
 		m_window->draw(m_startNode->nodeRect);
 	}
 	if (endNodeAdded) // Draws the EndNode If added
@@ -319,9 +403,30 @@ void Grid::display()
 			i->nodeRect.setOutlineColor(sf::Color(60, 60, 60));
 			i->nodeRect.setFillColor(sf::Color::Cyan);
 			m_window->draw(i->nodeRect);
+			i->CostDisplay(font, m_window, i);
+		}
+		for (auto i : m_closedList)
+		{
+			i->CostDisplay(font, m_window, i);
 		}
 	}
+}
 
+void Grid::construct_path(Node* lastNode)
+{
+	m_path.push_back(lastNode);
+	//	 Iteratate Through the Closed List in Reverse
+//	std::deque<Node*>::const_reverse_iterator iterate = m_closedList.rbegin();
+//	for (iterate = m_closedList.rbegin(); iterate != m_closedList.rend(); iterate++)
+//	{
+//		if (*iterate == tmpNode)
+//		{
+//			m_path.push_back(*iterate);
+//		}
+//		tmpNode = lastNode->parentNode;
+//	}
+
+	std::cout << "m_path: " << m_path.size() << std::endl;
 }
 
 bool Grid::isValid(int parent_i, int parent_j)
@@ -330,5 +435,6 @@ bool Grid::isValid(int parent_i, int parent_j)
 	{
 		return false;
 	}
+
 	return (parent_i >= 0) && (parent_i <= m_rows) && (parent_j >= 0) && (parent_j <= m_columns) && bgGridNodes[parent_i][parent_j]->isWalkable;
 }

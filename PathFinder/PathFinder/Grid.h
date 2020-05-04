@@ -10,9 +10,10 @@
 #include <cmath>
 #include <deque>
 
-const int ROWS_COLS_SIZE = 24; // 30
-const int BLOCKSIZE = 35;      // 25
-const int BLOCK_DISTANCE = 40; // 30
+const int ROWS_SIZE = 20; // 30
+const int COLS_SIZE = 17; // 30
+const int BLOCKSIZE = 50;      // 25
+const int BLOCK_DISTANCE = 55; // 30
 
 
 struct Node // node structure
@@ -21,21 +22,55 @@ public:
 	int blocksize = 0; // the size of each blocl
 	sf::Color blockcolor; // The Color of the created block
 	sf::RectangleShape nodeRect; // the Rectangle shape 
-	Node() { blocksize = 25; blockcolor = sf::Color::Cyan; }
+	Node()
+	{
+		blocksize = 25; blockcolor = sf::Color::Cyan;
+	}
+
 	Node(int s, sf::Color col) : blocksize(s), blockcolor(col)
 	{
 		nodeRect.setFillColor(blockcolor); nodeRect.setSize(sf::Vector2f(blocksize, blocksize));
 	}
+
 	int parent_i = 0;
 	int	parent_j = 0;
-	double fCost = 0;
+	int fCost = 0;
 	int gCost = 0;
-	double hCost = 0;
+	int hCost = 0;
 	bool startNode = false;
 	bool endNode = false;
 	bool isWalkable = true;
 	bool clicked = false;
+	bool grabbed = false;
+	Node* parentNode = nullptr;
 
+	void CostDisplay(sf::Font f, sf::RenderWindow* win, Node* currNode)
+	{
+		sf::Text fCostText; // Middle Text
+		fCostText.setFont(f);
+		fCostText.setString(std::to_string(fCost));
+		fCostText.setCharacterSize(10);
+		fCostText.setFillColor(sf::Color::Black);
+		fCostText.setPosition(sf::Vector2f(currNode->nodeRect.getPosition().x + blocksize / 2 - 5, currNode->nodeRect.getPosition().y + blocksize / 2 - 7));
+
+		sf::Text gCostText; // Bottom Left
+		gCostText.setFont(f);
+		gCostText.setString(std::to_string(gCost));
+		gCostText.setCharacterSize(10);
+		gCostText.setFillColor(sf::Color::Black);
+		gCostText.setPosition(sf::Vector2f(currNode->nodeRect.getPosition().x  + 5, currNode->nodeRect.getPosition().y + blocksize - 20));
+
+		sf::Text hCostText; // Top Right
+		hCostText.setFont(f);
+		hCostText.setString(std::to_string(hCost));
+		hCostText.setCharacterSize(10);
+		hCostText.setFillColor(sf::Color::Black);
+		hCostText.setPosition(sf::Vector2f(currNode->nodeRect.getPosition().x + blocksize - 20, currNode->nodeRect.getPosition().y + 5 ));
+
+		win->draw(fCostText);
+		win->draw(gCostText);
+		win->draw(hCostText);
+	}
 
 	bool operator==(const Node& b)
 	{
@@ -57,9 +92,13 @@ public:
 	void calculatehCost(Node* currnode, Node* endNode) // Distance from the currentNode to EndNode
 	{
 		// use my man, pythagorus's Formula to calculate dist from currNode to endNode
-		currnode->hCost = std::sqrt((std::pow(currnode->nodeRect.getPosition().x - endNode->nodeRect.getPosition().x, 2) +
-			std::pow(currnode->nodeRect.getPosition().y - endNode->nodeRect.getPosition().y, 2)));
+	//	hCost = std::abs(std::sqrt((std::pow(endNode->parent_i - currnode->parent_i, 2) +
+	//			std::pow(endNode->parent_j - currnode->parent_j , 2))));
+
+		currnode->hCost = std::abs(std::sqrt((std::pow(currnode->nodeRect.getPosition().x - endNode->nodeRect.getPosition().x, 2) +
+			std::pow(currnode->nodeRect.getPosition().y - endNode->nodeRect.getPosition().y, 2))));
 		hCost = currnode->hCost / 10;
+
 	}
 };
 
@@ -77,10 +116,14 @@ public:
 	bool StartButtonClicked();
 	void buttonToggle();
 	Node* lowestFCost();
+	void closedList_lowestFCost(Node*);
 	bool isValid(int, int); // Utility Function that will Alow me Check if a node is valid or not. [row, column]
-	bool isNOTclosedList(Node*);
+	bool isclosedList(Node*);
+	bool isopenList(Node*);
 	void isClicked();
+	void toggleNodePickup();
 	void display();
+	void construct_path(Node*);
 
 private:
 	bool found = false;
@@ -91,7 +134,7 @@ private:
 	bool startNodeAdded = false;
 	bool endNodeAdded = false;
 	sf::RenderWindow* m_window;
-	Node* bgGridNodes[ROWS_COLS_SIZE][ROWS_COLS_SIZE];
+	Node* bgGridNodes[ROWS_SIZE][COLS_SIZE];
 	Node* m_endNode = nullptr;
 	Node* m_startNode = nullptr;
 	std::deque<Node*> m_openList;
@@ -99,6 +142,9 @@ private:
 	std::deque<Node*> m_path;
 	sf::Texture button;
 	sf::Sprite buttonSprite;
+	sf::Font font;
+
+
 
 };
 
