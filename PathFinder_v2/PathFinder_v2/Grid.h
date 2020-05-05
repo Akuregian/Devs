@@ -16,9 +16,10 @@ const int BLOCK_DISTANCE = 30;
 
 struct Node
 {
-	Node(){}
+	Node() {}
 	bool isWalkable = true;
 	bool visited = false;
+	bool grabbed = false;
 	double globalfGoal = 0; // Cost of the route to goal
 	double localfGoal = 0; // distance too the goal if we took an alternative route
 	int x = NULL;
@@ -26,7 +27,9 @@ struct Node
 	sf::RectangleShape rect;
 	std::deque<Node*> NeighborNodes;
 	Node* parent = nullptr;
+
 };
+
 
 class Grid
 {
@@ -39,20 +42,23 @@ public:
 	void constructPath();
 	void mouseContains();
 	bool isValid(int, int);
-	void resetAlgorithm();
+	void setStart();
+	void placeStart();
+	void setEnd();
+	void placeEnd();
 	void Display();
+
+	void generateRandoCommandoMaze();
 
 private:
 	bool found = false;
-
 	Node* nodes[ROWS][COLS];
 	Node* m_startNode = nullptr;
 	Node* m_endNode = nullptr;
 	std::list<Node*> nonTestedNodes;
 	std::deque<Node*> m_path;
-
+	sf::RectangleShape mouseNode;
 	sf::RenderWindow* m_win;
-	sf::Event* m_event;
 };
 
 #endif

@@ -1,34 +1,5 @@
 #include "Grid.h"
 
-bool Grid::isValid(int x, int y)
-{
-	if (x > ROWS || y > COLS)
-	{
-		return false;
-	}
-	return (x >= 0) && (x < ROWS) && (y >= 0) && (y < COLS);
-}
-
-void Grid::mouseContains()
-{
-	sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
-	for (int i = 0; i < ROWS; i++)
-	{
-		for (int j = 0; j < COLS; j++)
-		{
-			if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable)
-			{
-				nodes[i][j]->isWalkable = false;
-				nodes[i][j]->rect.setFillColor(sf::Color::Black);
-			}
-			else if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !nodes[i][j]->isWalkable)
-			{
-				nodes[i][j]->isWalkable = true;
-				nodes[i][j]->rect.setFillColor(sf::Color::White);
-			}
-		}
-	}
-}
 
 float EuclidianDistance(Node* a, Node* b)
 {
@@ -36,11 +7,41 @@ float EuclidianDistance(Node* a, Node* b)
 
 }
 
+void Grid::setStart()
+{
+	m_startNode = nodes[1][1];
+	m_startNode->rect.setFillColor(sf::Color::Blue);
+}
+
+void Grid::placeStart()
+{
+	sf::Vector2i mPos = sf::Mouse::getPosition();
+	if (m_startNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_startNode->grabbed)
+	{
+		mouseContains();
+	}
+}
+
+void Grid::setEnd()
+{
+	m_endNode = nodes[21][21];
+	m_endNode->rect.setFillColor(sf::Color::Green);
+}
+
+void Grid::placeEnd()
+{
+	sf::Vector2i mPos = sf::Mouse::getPosition();
+	if (m_endNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_endNode->grabbed)
+	{
+		mouseContains();
+	}
+}
+
 Grid::Grid(sf::RenderWindow* window)
 	: m_win(window)
 {
-
-	for (int i = 0; i <ROWS ; i++)
+	srand(time(NULL));
+	for (int i = 0; i < ROWS; i++)
 	{
 		for (int j = 0; j < COLS; j++)
 		{
@@ -53,10 +54,9 @@ Grid::Grid(sf::RenderWindow* window)
 			nodes[i][j]->rect.setPosition(sf::Vector2f(i * BLOCK_DISTANCE + 5, j * BLOCK_DISTANCE + 5));
 		}
 	}
-	m_startNode = nodes[0][0];
-	m_endNode = nodes[24][24];
-	m_startNode->rect.setFillColor(sf::Color::Green);
-	m_endNode->rect.setFillColor(sf::Color::Red);
+	setStart();
+	setEnd();
+	mouseNode.setSize(sf::Vector2f(bSIZE, bSIZE));
 }
 
 
@@ -101,7 +101,7 @@ bool Grid::A_Star_Algorithm()
 {
 	std::cout << "Entered" << std::endl;
 	// Reset All The Nodes back to Default Before Algorithm Starts
-	for (int i = 0; i <ROWS ; i++)
+	for (int i = 0; i < ROWS; i++)
 	{
 		for (int j = 0; j < COLS; j++)
 		{
@@ -136,7 +136,7 @@ bool Grid::A_Star_Algorithm()
 		currNode = nonTestedNodes.front();
 		currNode->visited = true;
 		GrabNeighborNodes(*currNode);
-		for (auto i : currNode->NeighborNodes) 
+		for (auto i : currNode->NeighborNodes)
 		{
 			if (!i->visited && i->isWalkable)
 			{
@@ -162,7 +162,7 @@ void Grid::constructPath()
 	if (m_endNode != nullptr)
 	{
 		Node* par = m_endNode;
-		while(par->parent != nullptr)
+		while (par->parent != nullptr)
 		{
 			m_path.push_back(par);
 			m_win->draw(par->rect);
@@ -172,50 +172,50 @@ void Grid::constructPath()
 	found = true;
 }
 
-
-void Grid::resetAlgorithm()
-{
-	for (int i = 0; i < ROWS; i++)
-	{
-		for (int j = 0; j < COLS; j++)
-		{
-			nodes[i][j] = nullptr;
-		}
-	}
-	for (int i = 0; i <ROWS ; i++)
-	{
-		for (int j = 0; j < COLS; j++)
-		{
-			nodes[i][j] = new Node;
-			nodes[i][j]->rect.setFillColor(sf::Color::White);
-			nodes[i][j]->rect.setSize(sf::Vector2f(bSIZE, bSIZE));
-			nodes[i][j]->parent = nullptr;
-			nodes[i][j]->x = i;
-			nodes[i][j]->y = j;
-			nodes[i][j]->rect.setPosition(sf::Vector2f(i * BLOCK_DISTANCE + 5, j * BLOCK_DISTANCE + 5));
-		}
-	}
-	m_startNode = nodes[0][0];
-	m_endNode = nodes[24][24];
-	m_startNode->rect.setFillColor(sf::Color::Green);
-	m_endNode->rect.setFillColor(sf::Color::Red);
-
-	
-}
-
 void Grid::Display()
 {
-	for (int i = 0; i <ROWS ; i++)
+	for (int i = 0; i < ROWS; i++)
 	{
 		for (int j = 0; j < COLS; j++)
 		{
 			m_win->draw(nodes[i][j]->rect);
 		}
 	}
+
 	if (m_startNode != nullptr)
 	{
-		m_win->draw(m_startNode->rect);
+		if (m_startNode->grabbed)
+		{
+			m_startNode->rect.setFillColor(sf::Color::White);
+			sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+			mouseNode.setPosition(mPos.x - bSIZE / 2, mPos.y - bSIZE / 2);
+			mouseNode.setFillColor(sf::Color::Blue);
+			m_win->draw(mouseNode);
+		}
+		else if(!m_startNode->grabbed)
+		{
+			m_startNode->rect.setFillColor(sf::Color::Blue);
+			m_win->draw(m_startNode->rect);
+		}
 	}
+
+	if (m_endNode != nullptr)
+	{
+		if (m_endNode->grabbed)
+		{
+			m_endNode->rect.setFillColor(sf::Color::White);
+			sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+			mouseNode.setPosition(mPos.x - bSIZE / 2, mPos.y - bSIZE / 2);
+			mouseNode.setFillColor(sf::Color::Green);
+			m_win->draw(mouseNode);
+		}
+		else if(!m_endNode->grabbed)
+		{
+			m_endNode->rect.setFillColor(sf::Color::Green);
+			m_win->draw(m_endNode->rect);
+		}
+	}
+
 	if (found)
 	{
 		for (auto i : m_path)
@@ -225,3 +225,89 @@ void Grid::Display()
 		}
 	}
 }
+
+bool Grid::isValid(int x, int y)
+{
+	if (x > ROWS || y > COLS)
+	{
+		return false;
+	}
+	return (x >= 0) && (x < ROWS) && (y >= 0) && (y < COLS);
+}
+
+void Grid::mouseContains()
+{
+	if (m_startNode != nullptr)
+	{
+		sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+		if (m_startNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !m_startNode->grabbed)
+		{
+			m_startNode->grabbed = true;
+		}
+		else if (m_startNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_startNode->grabbed)
+		{
+
+			placeStart();
+			m_startNode->grabbed = false;
+		}
+
+		if (m_endNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !m_endNode->grabbed)
+		{
+			m_endNode->grabbed = true;
+		}
+		else if (m_endNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_endNode->grabbed)
+		{
+
+			placeEnd();
+			m_endNode->grabbed = false;
+		}
+	}
+
+	for (int i = 0; i < ROWS; i++)
+	{
+		for (int j = 0; j < COLS; j++)
+		{
+			if (m_startNode != nullptr && m_endNode != nullptr)
+			{
+				sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+				if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable && !m_startNode->grabbed && !m_endNode->grabbed)
+				{
+					nodes[i][j]->isWalkable = false;
+					nodes[i][j]->rect.setFillColor(sf::Color::Black);
+				}
+				else if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !nodes[i][j]->isWalkable)
+				{
+					nodes[i][j]->isWalkable = true;
+					nodes[i][j]->rect.setFillColor(sf::Color::White);
+				}
+				if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable && m_startNode->grabbed)
+				{
+					m_startNode = nodes[i][j];
+					break;
+				}
+				if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable && m_endNode->grabbed)
+				{
+					m_endNode = nodes[i][j];
+					break;
+				}
+			}
+		}
+	}
+}
+
+void Grid::generateRandoCommandoMaze()
+{	
+	for (int i = 0; i < ROWS; i++)
+	{
+		for (int j = 0; j < COLS; j++)
+		{
+			int chance = rand() % 100;
+			if (chance < 30)
+			{
+				nodes[i][j]->isWalkable = false;
+				nodes[i][j]->rect.setFillColor(sf::Color::Black);
+			}
+		}
+	}
+}
+

@@ -19,15 +19,21 @@ int main()
 
             if (event.type == sf::Event::KeyPressed)
             {
-               if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
                 {
                     grid.reset();
                     grid = std::make_unique<Grid>(&window);
                     startAlgorithm = false;
                 }
+
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
                 {
                     startAlgorithm = true;
+                }
+
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
+                {
+                    grid->generateRandoCommandoMaze();
                 }
             }
 
@@ -37,10 +43,10 @@ int main()
             }
         }
 
-		if (!grid->getFound() && startAlgorithm)
-		{
-			grid->A_Star_Algorithm();
-		}
+        if (!grid->getFound() && startAlgorithm)
+        {
+            grid->A_Star_Algorithm();
+        }
         grid->Display();
         window.display();
         window.clear();
