@@ -1,151 +1,76 @@
-/*
-	File: Grid.h
-	Class Description: Creates a grid, using SFML sqaures. Each sqaure represents a Node.
-*/
 #pragma once
 #ifndef GRID_H
 #define GRID_H
-#include <SFML/Graphics.hpp>
-#include <SFML/Graphics/Font.hpp>
-#include <cmath>
+#include<iostream>
+#include<SFML/Graphics.hpp>
 #include <deque>
-
-const int ROWS_SIZE = 20; // 30
-const int COLS_SIZE = 17; // 30
-const int BLOCKSIZE = 50;      // 25
-const int BLOCK_DISTANCE = 55; // 30
+#include <list>
 
 
-struct Node // node structure
+const int ROWS = 25;
+const int COLS = 25;
+const int bSIZE = 25;
+const int BLOCK_DISTANCE = 30;
+
+struct Button
 {
-public:
-	int blocksize = 0; // the size of each blocl
-	sf::Color blockcolor; // The Color of the created block
-	sf::RectangleShape nodeRect; // the Rectangle shape 
-	Node()
+	Button(std::string name, sf::Color col, int w, int h)
 	{
-		blocksize = 25; blockcolor = sf::Color::Cyan;
+		bName.setString(name);
+		button.setFillColor(col);
+		button.setSize(sf::Vector2f(w, h));
+		//button.setPosition(200, 200);
+		//bName.setPosition(sf::Vector2f(button.getPosition().x, button.getPosition().y));
 	}
-
-	Node(int s, sf::Color col) : blocksize(s), blockcolor(col)
-	{
-		nodeRect.setFillColor(blockcolor); nodeRect.setSize(sf::Vector2f(blocksize, blocksize));
-	}
-
-	int parent_i = 0;
-	int	parent_j = 0;
-	int fCost = 0;
-	int gCost = 0;
-	int hCost = 0;
-	bool startNode = false;
-	bool endNode = false;
-	bool isWalkable = true;
-	bool clicked = false;
-	bool grabbed = false;
-	Node* parentNode = nullptr;
-
-	void CostDisplay(sf::Font f, sf::RenderWindow* win, Node* currNode)
-	{
-		sf::Text fCostText; // Middle Text
-		fCostText.setFont(f);
-		fCostText.setString(std::to_string(fCost));
-		fCostText.setCharacterSize(10);
-		fCostText.setFillColor(sf::Color::Black);
-		fCostText.setPosition(sf::Vector2f(currNode->nodeRect.getPosition().x + blocksize / 2 - 5, currNode->nodeRect.getPosition().y + blocksize / 2 - 7));
-
-		sf::Text gCostText; // Bottom Left
-		gCostText.setFont(f);
-		gCostText.setString(std::to_string(gCost));
-		gCostText.setCharacterSize(10);
-		gCostText.setFillColor(sf::Color::Black);
-		gCostText.setPosition(sf::Vector2f(currNode->nodeRect.getPosition().x  + 5, currNode->nodeRect.getPosition().y + blocksize - 20));
-
-		sf::Text hCostText; // Top Right
-		hCostText.setFont(f);
-		hCostText.setString(std::to_string(hCost));
-		hCostText.setCharacterSize(10);
-		hCostText.setFillColor(sf::Color::Black);
-		hCostText.setPosition(sf::Vector2f(currNode->nodeRect.getPosition().x + blocksize - 20, currNode->nodeRect.getPosition().y + 5 ));
-
-		win->draw(fCostText);
-		win->draw(gCostText);
-		win->draw(hCostText);
-	}
-
-	bool operator==(const Node& b)
-	{
-		return parent_i == b.parent_i && parent_j == b.parent_j;
-	}
-
-	void calculatefCost() // Total Cost of Node
-	{
-		//f = g + h
-		fCost = hCost + gCost;
-	}
-
-	void calculategCost(Node* currNode, Node* startNode) // Distance From CurrentNode to startNode
-	{
-		// Store that value inside gCost
-		gCost = currNode->gCost + 1;
-	}
-
-	void calculatehCost(Node* currnode, Node* endNode) // Distance from the currentNode to EndNode
-	{
-		// use my man, pythagorus's Formula to calculate dist from currNode to endNode
-	//	hCost = std::abs(std::sqrt((std::pow(endNode->parent_i - currnode->parent_i, 2) +
-	//			std::pow(endNode->parent_j - currnode->parent_j , 2))));
-
-		currnode->hCost = std::abs(std::sqrt((std::pow(currnode->nodeRect.getPosition().x - endNode->nodeRect.getPosition().x, 2) +
-			std::pow(currnode->nodeRect.getPosition().y - endNode->nodeRect.getPosition().y, 2))));
-		hCost = currnode->hCost / 10;
-
-	}
+	sf::Text bName;
+	sf::RectangleShape button;
 };
 
+struct Node
+{
+	Node() {}
+	bool isWalkable = true;
+	bool visited = false;
+	bool grabbed = false;
+	double globalfGoal = 0; // Cost of the route to goal
+	double localfGoal = 0; // distance too the goal if we took an alternative route
+	int x = NULL;
+	int y = NULL;
+	sf::RectangleShape rect;
+	std::deque<Node*> NeighborNodes;
+	Node* parent = nullptr;
+
+};
 
 class Grid
 {
 public:
-	Grid(int, int, int, sf::RenderWindow*);
-	void aStarAlgorithm();
-	void checkNeighborNodes(Node*);
-	void start_node();
-	void end_node();
-	void buttonInit();
-	bool getbuttonState() { return buttonState; }
-	bool StartButtonClicked();
-	void buttonToggle();
-	Node* lowestFCost();
-	void closedList_lowestFCost(Node*);
-	bool isValid(int, int); // Utility Function that will Alow me Check if a node is valid or not. [row, column]
-	bool isclosedList(Node*);
-	bool isopenList(Node*);
-	void isClicked();
-	void toggleNodePickup();
-	void display();
-	void construct_path(Node*);
+	Grid(sf::RenderWindow*);
+	bool A_Star_Algorithm();
+	bool getFound() { return found; }
+	void setFound(bool v) { found = v; }
+	void GrabNeighborNodes(Node&);
+	void constructPath();
+	void mouseContains();
+	bool isValid(int, int);
+	void setStart();
+	void placeStart();
+	void setEnd();
+	void placeEnd();
+	void Display();
+	void generateRandoCommandoMaze();
+
 
 private:
 	bool found = false;
-	int m_rows;
-	int m_columns;
-	int m_size;
-	bool buttonState = false;
-	bool startNodeAdded = false;
-	bool endNodeAdded = false;
-	sf::RenderWindow* m_window;
-	Node* bgGridNodes[ROWS_SIZE][COLS_SIZE];
-	Node* m_endNode = nullptr;
+	Node* nodes[ROWS][COLS];
 	Node* m_startNode = nullptr;
-	std::deque<Node*> m_openList;
-	std::deque<Node*> m_closedList;
+	Node* m_endNode = nullptr;
+	std::list<Node*> nonTestedNodes;
 	std::deque<Node*> m_path;
-	sf::Texture button;
-	sf::Sprite buttonSprite;
-	sf::Font font;
-
-
-
+	sf::RectangleShape mouseNode;
+	sf::RenderWindow* m_win;
+	sf::Font m_font;
 };
 
 #endif

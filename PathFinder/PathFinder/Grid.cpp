@@ -1,440 +1,316 @@
-/*
-	File: Grid.h
-	Class Description: Creates a grid, using SFML sqaures. Each sqaure represents a Node.
-*/
-
-#include <iostream>
 #include "Grid.h"
 
-Grid::Grid(int r, int c, int s, sf::RenderWindow* w) // Takes in the rowSize, ColSize, blockSize, and Reference to the main draw window
-	: m_rows(r), m_columns(c), m_size(s), m_window(w)
+
+float EuclidianDistance(Node* a, Node* b)
 {
-	if (!font.loadFromFile("Fonts/OpenSans-ExtraBold.ttf"))
+	return std::sqrtf(std::powf((b->x - a->x), 2) + std::powf((b->y - a->y), 2));
+
+}
+
+void Grid::setStart()
+{
+	m_startNode = nodes[1][1];
+	m_startNode->rect.setFillColor(sf::Color::Blue);
+}
+
+void Grid::placeStart()
+{
+	sf::Vector2i mPos = sf::Mouse::getPosition();
+	if (m_startNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_startNode->grabbed)
 	{
-		std::cout << "Error Loading Font" << std::endl;
-		exit;
+		mouseContains();
 	}
-	buttonInit();
-	for (int i = 0; i < m_rows; i++)
+}
+
+void Grid::setEnd()
+{
+	m_endNode = nodes[21][21];
+	m_endNode->rect.setFillColor(sf::Color::Green);
+}
+
+void Grid::placeEnd()
+{
+	sf::Vector2i mPos = sf::Mouse::getPosition();
+	if (m_endNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_endNode->grabbed)
 	{
-		for (int j = 0; j < m_columns; j++)
+		mouseContains();
+	}
+}
+
+Grid::Grid(sf::RenderWindow* window)
+	: m_win(window)
+{
+	if (!m_font.loadFromFile("C:/Users/Antho/Devs/PathFinder/PathFinder/Font/OpenSans-Bold.ttf"));
+	{
+		std::cout << "error Loading tHem shits" << std::endl;
+	}
+	for (int i = 0; i < ROWS; i++)
+	{
+		for (int j = 0; j < COLS; j++)
 		{
-			bgGridNodes[i][j] = new Node(BLOCKSIZE, sf::Color(150, 150, 150)); // ?? ***** Pretty sure this will cause a MEMORY LEAK? ***** ??
-			bgGridNodes[i][j]->parent_i = i;
-			bgGridNodes[i][j]->parent_j = j;
-			bgGridNodes[i][j]->nodeRect.setPosition(sf::Vector2f(i * BLOCK_DISTANCE + 5, j * BLOCK_DISTANCE + 5)); // sets each nodes postions, with there distance apart from eachother
+			nodes[i][j] = new Node;
+			nodes[i][j]->rect.setFillColor(sf::Color::White);
+			nodes[i][j]->rect.setSize(sf::Vector2f(bSIZE, bSIZE));
+			nodes[i][j]->parent = nullptr;
+			nodes[i][j]->x = i;
+			nodes[i][j]->y = j;
+			nodes[i][j]->rect.setPosition(sf::Vector2f(i * BLOCK_DISTANCE + 5, j * BLOCK_DISTANCE + 5));
 		}
 	}
+
 	srand(time(NULL));
-	start_node();
-	end_node();
+	setStart();
+	setEnd();
+	mouseNode.setSize(sf::Vector2f(bSIZE, bSIZE));
 }
 
-void Grid::buttonInit()
+void Grid::GrabNeighborNodes(Node& curr)
 {
-	if (!button.loadFromFile("Images/startbutton.png"))
-	{
-		std::cout << "Could Not Load/Find the Button Texture Image" << std::endl;
-	}
-	button.setSmooth(true);
-	buttonSprite.setTexture(button);
-	buttonSprite.setScale(sf::Vector2f(0.55f, 0.55f));
-	buttonSprite.setPosition(sf::Vector2f(960, 20));
-}
 
-
-void Grid::closedList_lowestFCost(Node* lastNode) 
-{
-	m_path.push_back(lastNode);
-	m_path.push_back(m_startNode);
-	int maxVal = INT_MAX;
-	int path_cost = 0;
-	int index = 1;
-	int maxG = m_closedList[m_closedList.size() - 1]->gCost + 1;
-	while (index != maxG) // Index is theGcost Values im looking at
+	if (isValid(curr.x, curr.y - 1)) // Top
 	{
-		for (auto i : m_closedList) // Loop Through The Closed List searching for the gCost = Index
+		if (nodes[curr.x][curr.y]->isWalkable)
 		{
-			if(i->gCost == index) // If that gCost == Index we are looking for
+			nodes[curr.x][curr.y]->NeighborNodes.push_back(nodes[curr.x][curr.y - 1]);
+		}
+	}
+
+	if (isValid(curr.x - 1, curr.y)) // Left
+	{
+		if (nodes[curr.x - 1][curr.y]->isWalkable)
+		{
+			nodes[curr.x][curr.y]->NeighborNodes.push_back(nodes[curr.x - 1][curr.y]);
+		}
+	}
+
+	if (isValid(curr.x + 1, curr.y)) // Right
+	{
+		if (nodes[curr.x + 1][curr.y]->isWalkable)
+		{
+			nodes[curr.x][curr.y]->NeighborNodes.push_back(nodes[curr.x + 1][curr.y]);
+		}
+	}
+
+	if (isValid(curr.x, curr.y + 1)) // Bottom
+	{
+		if (nodes[curr.x][curr.y + 1]->isWalkable)
+		{
+			nodes[curr.x][curr.y]->NeighborNodes.push_back(nodes[curr.x][curr.y + 1]);
+		}
+	}
+
+}
+
+bool Grid::A_Star_Algorithm()
+{
+	std::cout << "Entered" << std::endl;
+	// Reset All The Nodes back to Default Before Algorithm Starts
+	for (int i = 0; i < ROWS; i++)
+	{
+		for (int j = 0; j < COLS; j++)
+		{
+			nodes[i][j]->visited = false;
+			nodes[i][j]->globalfGoal = INFINITY;
+			nodes[i][j]->localfGoal = INFINITY;
+			nodes[i][j]->parent = nullptr;
+		}
+	}
+
+	// Starting Setup
+	Node* currNode = m_startNode; // Set the CurrentNode to the Starting Node
+	currNode->localfGoal = 0.0f; // Set Its Local Goal to 0;
+	currNode->globalfGoal = EuclidianDistance(m_startNode, m_endNode); // Grab the Distance from the StartingNode -> EndingNode
+	nonTestedNodes.push_back(m_startNode); // push_back(StartingNode)
+
+	while (!nonTestedNodes.empty() && currNode != m_endNode)
+	{
+		// Sort the Global Goal so that the lowest is first, Ill be using a Lambda Func, hence the []
+		nonTestedNodes.sort([](const Node* lhNode, const Node* rhNode) { return lhNode->globalfGoal < rhNode->globalfGoal; }); //lhNode is less then rhNode, Return;
+
+		while (!nonTestedNodes.empty() && nonTestedNodes.front()->visited)
+		{
+			nonTestedNodes.pop_front();
+		}
+
+		if (nonTestedNodes.empty())
+		{
+			break;
+		}
+
+		currNode = nonTestedNodes.front();
+		currNode->visited = true;
+		GrabNeighborNodes(*currNode);
+		for (auto i : currNode->NeighborNodes)
+		{
+			if (!i->visited && i->isWalkable)
 			{
-				if (i->fCost <= maxVal) // Check too see if its the smallest of the nodes were looking at
-				{
-					m_path.push_back(i);
-					break;
-				}
+				nonTestedNodes.push_back(i);
+			}
+
+			float possiblyLowerPath = currNode->localfGoal + EuclidianDistance(currNode, i);
+
+			if (possiblyLowerPath < i->localfGoal)
+			{
+				i->parent = currNode;
+				i->localfGoal = possiblyLowerPath;
+				i->globalfGoal = i->localfGoal + EuclidianDistance(i, m_endNode);
 			}
 		}
-		index++;
 	}
+	constructPath();
+	return true;
 }
 
-Node* Grid::lowestFCost()
+void Grid::constructPath()
 {
-	Node* lowestFCostNode = m_openList[0];
-	for (auto i : m_openList)
+	if (m_endNode != nullptr)
 	{
-		if (i->fCost < lowestFCostNode->fCost) // Skips Here When Evaluating, since One of the Nodes are being Appneded AGAIN causing it too choose that node. since fCost is smaller
+		Node* par = m_endNode;
+		while (par->parent != nullptr)
 		{
-			if (!i->isWalkable)
-			{
-				continue;
-			}
-
-			lowestFCostNode = i;
+			m_path.push_back(par);
+			m_win->draw(par->rect);
+			par = par->parent;
 		}
 	}
-	return lowestFCostNode;
+	found = true;
 }
 
-void Grid::isClicked()
+void Grid::Display()
 {
-	for (unsigned int i = 0; i < m_rows; i++)
+	for (int i = 0; i < ROWS; i++)
 	{
-		for (unsigned int j = 0; j < m_columns; j++)
+		for (int j = 0; j < COLS; j++)
 		{
-			sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
-			if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && bgGridNodes[i][j]->clicked)
-			{
-				bgGridNodes[i][j]->clicked = false;
-				bgGridNodes[i][j]->isWalkable = true;
-			}
-			else if (bgGridNodes[i][j]->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y) && !bgGridNodes[i][j]->clicked)
-			{
-				bgGridNodes[i][j]->clicked = true;
-				bgGridNodes[i][j]->isWalkable = false;
-			}
+			m_win->draw(nodes[i][j]->rect);
 		}
 	}
-}
 
-void Grid::buttonToggle()
-{
-	if (buttonState)
-	{
-		buttonState = false;
-	}
-	else
-	{
-		buttonState = true;
-	}
-
-}
-
-void Grid::toggleNodePickup()
-{
-	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
-	if (m_endNode->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y))
-	{
-		if(m_endNode->grabbed)
-		{
-			m_endNode->grabbed = false;
-			//m_endNode = closestNode();
-		}
-		else
-		{
-			m_endNode->nodeRect.setPosition(sf::Vector2f(mousePos.x - BLOCKSIZE / 2, mousePos.y - BLOCKSIZE / 2));
-			m_endNode->grabbed = true;
-		}
-	} 
-
-	if (m_startNode->nodeRect.getGlobalBounds().contains(mousePos.x, mousePos.y))
+	if (m_startNode != nullptr)
 	{
 		if (m_startNode->grabbed)
 		{
-			m_startNode->grabbed = false;
-			//m_startNode = closestNode();
-		}
-		else
-		{
-			m_startNode->nodeRect.setPosition(sf::Vector2f(mousePos.x - BLOCKSIZE / 2, mousePos.y - BLOCKSIZE / 2));
-			m_startNode->grabbed = true;
-		}
-	}
-}
-
-bool Grid::StartButtonClicked()
-{
-	sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
-	if (buttonSprite.getGlobalBounds().contains(mousePos.x, mousePos.y) && sf::Mouse::isButtonPressed(sf::Mouse::Left))
-	{
-		return true;
-	}
-	return false;
-}
-
-bool Grid::isopenList(Node* n)
-{
-	for (auto i : m_openList)
-	{
-		if (i == n)
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool Grid::isclosedList(Node* n)
-{
-	for (auto i : m_closedList)
-	{
-		if (i == n)
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void Grid::checkNeighborNodes(Node* currNode)
-{
-	std::deque<Node*> childrenNodes; // Where I can store the Children Nodes Surrounding the Current Node.
-	if (isValid(currNode->parent_i, currNode->parent_j)) // If the Node is a Valid node; meaning its within [m_rows][m_columns], then enter
-	{
-		// Make sure the Node is Valid. Add it too the Children Nodes. Calculate [f = g + h]
-		//
-		//     n[i-1][j-1]  n[i][j-1]  n[i+1][j-1]
-		//	            \      |      /
-		//	             \     |     /
-		//	   n[i-1][j] --- currNode --- n[i+1][j]
-		//	             /     |     \
-		//              /      |      \
-		//     n[i-1][j+1]   n[i][j+1]   n[i+1][j+1]
-
-		// Top Left Node From Current Position
-	//	if (isValid(currNode->parent_i - 1, currNode->parent_j - 1) && !isopenList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]) 
-	//		&& !isclosedList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]) )
-	//	{
-	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j - 1]);
-	//	}
-
-		// Top Middle Node From Current Position
-		if (isValid(currNode->parent_i, currNode->parent_j - 1) && !isopenList(bgGridNodes[currNode->parent_i][currNode->parent_j - 1]) 
-			&& !isclosedList(bgGridNodes[currNode->parent_i][currNode->parent_j - 1]) )
-		{
-		//	bgGridNodes[currNode->parent_i][currNode->parent_j - 1]->setParentNode(currNode);
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i][currNode->parent_j - 1]);
-		}
-
-		// Top Right Node From Current Position
-	//	if (isValid(currNode->parent_i + 1, currNode->parent_j - 1) && !isopenList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]) 
-	//		&& !isclosedList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]) )
-	//	{
-	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j - 1]);
-	//	}
-
-		// Middle Left Node From Current Position
-		if (isValid(currNode->parent_i - 1, currNode->parent_j) && !isopenList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j]) 
-			&& !isclosedList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j]) )
-		{
-		//	bgGridNodes[currNode->parent_i - 1][currNode->parent_j]->setParentNode(currNode);
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j]);
-		}
-
-		// Middle Right Node From Current Position
-		if (isValid(currNode->parent_i + 1, currNode->parent_j)&& !isopenList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j]) 
-			&& !isclosedList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j]) )
-		{
-			//bgGridNodes[currNode->parent_i + 1][currNode->parent_j]->setParentNode(currNode);
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j]);
-		}
-
-		// Bottom Left Node From Current Position
-	//	if (isValid(currNode->parent_i - 1, currNode->parent_j + 1) && !isopenList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]) 
-	//		&& !isclosedList(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]) )
-	//	{
-	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i - 1][currNode->parent_j + 1]);
-	//	}
-
-		// Bottom Middle Node From Current Position
-		if (isValid(currNode->parent_i, currNode->parent_j + 1) && !isopenList(bgGridNodes[currNode->parent_i][currNode->parent_j + 1])
-			&& !isclosedList(bgGridNodes[currNode->parent_i][currNode->parent_j + 1]) )
-		{
-			//bgGridNodes[currNode->parent_i][currNode->parent_j + 1]->setParentNode(currNode);
-			childrenNodes.push_back(bgGridNodes[currNode->parent_i][currNode->parent_j + 1]);
-		}
-		// Bottom Right Node From Current Position
-	//	if (isValid(currNode->parent_i + 1, currNode->parent_j + 1)&& !isopenList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1 ]) 
-	//		&& !isclosedList(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1 ]) )
-	//	{
-	//		childrenNodes.push_back(bgGridNodes[currNode->parent_i + 1][currNode->parent_j + 1]);
-	//	}
-	}
-	else
-	{
-		try
-		{
-			throw 22;
-		}
-		catch (const char* e)
-		{
-			std::cout << "Invalid Location was Selected" << std::endl;
-		}
-	}
-
-	for (auto i : childrenNodes) // Loop Through Children Nodes
-	{
-		for (auto j : m_closedList) // if a child is in the closed List, Conitue cause we dont like wasting time
-		{
-			if (i->isWalkable && !isopenList(i) && !isclosedList(i))
-			{
-				i->gCost += currNode->gCost + 1;
-				i->calculatehCost(i, m_endNode);
-				i->calculatefCost();
-				m_openList.push_back(i);
-			}
-		}
-	}
-
-	std::cout << "CurrNode : GCost-> " << currNode->gCost << std::endl;
-}
-
-// One problem is: mOpenList is appending the same start Node and LowestFCost keeps getting assigned too the starting node..... ENSURE that the m_openList cannot append a node thats already
-//	in the closedList...
-void Grid::aStarAlgorithm()
-{
-	if (!found)
-	{
-		if (startNodeAdded && endNodeAdded) // If Start and End Nodes are set
-		{
-			while (!m_openList.empty()) // loop while the openList is not empty 
-			{
-				Node* lowerestNode = lowestFCost(); // grabs the lowest fCost and sets it too the currentNode.
-				if (lowerestNode == m_endNode)
-				{
-					std::cout << "Congrats, We have found the END!" << std::endl;
-					//construct_path(lowerestNode);
-					for (auto i : m_closedList)
-					{
-						closedList_lowestFCost(lowerestNode);
-						//m_path.push_back(i);
-					}
-					found = true;
-					break;
-				}
-
-				std::deque<Node*>::iterator it = m_openList.begin(); // Find that current node
-				for (
-					it; it != m_openList.end(); it++)
-				{
-					// Find the Loweserest node in the openList, Delete it.
-					if (lowerestNode == *it) 
-					{
-						m_openList.erase(it); // Found, now delete it from the m-openlists
-						break;
-					}
-				}
-
-				// Add It too the closedList
-				m_closedList.push_back(lowerestNode);
-
-				checkNeighborNodes(lowerestNode);
-			}
-		}
-	}
-}
-
-void Grid::start_node()
-{
-	int start_i = 6; // rand() % (m_rows);
-	int start_j = 9; // rand() % (m_columns);
-	m_startNode = bgGridNodes[start_i][start_j];
-	m_openList.push_back(m_startNode);
-	startNodeAdded = true;
-}
-
-void Grid::end_node()
-{
-	int end_i = 10; //rand() % (m_rows);
-	int end_j = 9; //rand() % (m_columns);
-	m_endNode = bgGridNodes[end_i][end_j];
-	endNodeAdded = true;
-}
-
-void Grid::display()
-{
-	for (int i = 0; i < m_rows; i++)
-	{
-		for (int j = 0; j < m_columns; j++)
-		{
-			if (bgGridNodes[i][j]->clicked && !bgGridNodes[i][j]->startNode && !bgGridNodes[i][j]->endNode) // check if a bgNode was clicked and its not the start or end node
-			{
-				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color::Black); // sets the clicked node to the color black and marks it as none walkable for the search algorithms
-			}
-			else if (!bgGridNodes[i][j]->clicked && !bgGridNodes[i][j]->startNode && !bgGridNodes[i][j]->endNode) // check if a bgNode was clicked and its not the start or end node
-			{
-				bgGridNodes[i][j]->nodeRect.setOutlineThickness(0.5f);
-				bgGridNodes[i][j]->nodeRect.setOutlineColor(sf::Color(220, 220, 220));
-				bgGridNodes[i][j]->nodeRect.setFillColor(sf::Color(150, 150, 150)); // sets the clicked node to the color black and marks it as none walkable for the search algorithms
-			}
-			m_window->draw(bgGridNodes[i][j]->nodeRect); // draws the nodes of the Background
-		}
-	}
-
-	m_window->draw(buttonSprite);
-
-	if (startNodeAdded) // Draws the StartNode, IF added
-	{
-
-		if (m_startNode->grabbed)
-		{
-			m_startNode->nodeRect.setFillColor(sf::Color(93, 138, 255));
-			sf::Vector2i mousePos = sf::Mouse::getPosition(*m_window);
-			m_startNode->nodeRect.setPosition(sf::Vector2f(mousePos.x - BLOCKSIZE / 2, mousePos.y - BLOCKSIZE / 2));
+			m_startNode->rect.setFillColor(sf::Color::White);
+			sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+			mouseNode.setPosition(mPos.x - bSIZE / 2, mPos.y - bSIZE / 2);
+			mouseNode.setFillColor(sf::Color::Blue);
+			m_win->draw(mouseNode);
 		}
 		else if (!m_startNode->grabbed)
 		{
-			m_startNode->nodeRect.setFillColor(sf::Color(93, 138, 169, 200));
+			m_startNode->rect.setFillColor(sf::Color::Blue);
+			m_win->draw(m_startNode->rect);
 		}
-
-		m_window->draw(m_startNode->nodeRect);
 	}
-	if (endNodeAdded) // Draws the EndNode If added
+
+	if (m_endNode != nullptr)
 	{
-		m_endNode->nodeRect.setFillColor(sf::Color::Red);
-		m_window->draw(m_endNode->nodeRect);
+		if (m_endNode->grabbed)
+		{
+			m_endNode->rect.setFillColor(sf::Color::White);
+			sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+			mouseNode.setPosition(mPos.x - bSIZE / 2, mPos.y - bSIZE / 2);
+			mouseNode.setFillColor(sf::Color::Green);
+			m_win->draw(mouseNode);
+		}
+		else if (!m_endNode->grabbed)
+		{
+			m_endNode->rect.setFillColor(sf::Color::Green);
+			m_win->draw(m_endNode->rect);
+		}
 	}
 
-	if (found) // Draw Path if END has been reached
+	if (found)
 	{
 		for (auto i : m_path)
 		{
-			i->nodeRect.setOutlineThickness(0.2);
-			i->nodeRect.setOutlineColor(sf::Color(60, 60, 60));
-			i->nodeRect.setFillColor(sf::Color::Cyan);
-			m_window->draw(i->nodeRect);
-			i->CostDisplay(font, m_window, i);
-		}
-		for (auto i : m_closedList)
-		{
-			i->CostDisplay(font, m_window, i);
+			i->rect.setFillColor(sf::Color::Magenta);
+			m_win->draw(i->rect);
 		}
 	}
 }
 
-void Grid::construct_path(Node* lastNode)
+bool Grid::isValid(int x, int y)
 {
-	m_path.push_back(lastNode);
-	//	 Iteratate Through the Closed List in Reverse
-//	std::deque<Node*>::const_reverse_iterator iterate = m_closedList.rbegin();
-//	for (iterate = m_closedList.rbegin(); iterate != m_closedList.rend(); iterate++)
-//	{
-//		if (*iterate == tmpNode)
-//		{
-//			m_path.push_back(*iterate);
-//		}
-//		tmpNode = lastNode->parentNode;
-//	}
-
-	std::cout << "m_path: " << m_path.size() << std::endl;
-}
-
-bool Grid::isValid(int parent_i, int parent_j)
-{
-	if (parent_i >= m_rows || parent_j >= m_columns)
+	if (x > ROWS || y > COLS)
 	{
 		return false;
 	}
+	return (x >= 0) && (x < ROWS) && (y >= 0) && (y < COLS);
+}
 
-	return (parent_i >= 0) && (parent_i <= m_rows) && (parent_j >= 0) && (parent_j <= m_columns) && bgGridNodes[parent_i][parent_j]->isWalkable;
+void Grid::mouseContains()
+{
+	if (m_startNode != nullptr)
+	{
+		sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+		if (m_startNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !m_startNode->grabbed)
+		{
+			m_startNode->grabbed = true;
+		}
+		else if (m_startNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_startNode->grabbed)
+		{
+
+			placeStart();
+			m_startNode->grabbed = false;
+		}
+
+		if (m_endNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !m_endNode->grabbed)
+		{
+			m_endNode->grabbed = true;
+		}
+		else if (m_endNode->rect.getGlobalBounds().contains(mPos.x, mPos.y) && m_endNode->grabbed)
+		{
+
+			placeEnd();
+			m_endNode->grabbed = false;
+		}
+	}
+
+	for (int i = 0; i < ROWS; i++)
+	{
+		for (int j = 0; j < COLS; j++)
+		{
+			if (m_startNode != nullptr && m_endNode != nullptr)
+			{
+				sf::Vector2i mPos = sf::Mouse::getPosition(*m_win);
+				if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable && !m_startNode->grabbed && !m_endNode->grabbed)
+				{
+					nodes[i][j]->isWalkable = false;
+					nodes[i][j]->rect.setFillColor(sf::Color::Black);
+				}
+				else if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && !nodes[i][j]->isWalkable)
+				{
+					nodes[i][j]->isWalkable = true;
+					nodes[i][j]->rect.setFillColor(sf::Color::White);
+				}
+				if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable && m_startNode->grabbed)
+				{
+					m_startNode = nodes[i][j];
+					break;
+				}
+				if (nodes[i][j]->rect.getGlobalBounds().contains(mPos.x, mPos.y) && nodes[i][j]->isWalkable && m_endNode->grabbed)
+				{
+					m_endNode = nodes[i][j];
+					break;
+				}
+			}
+		}
+	}
+}
+
+void Grid::generateRandoCommandoMaze()
+{
+	for (int i = 0; i < ROWS; i++)
+	{
+		for (int j = 0; j < COLS; j++)
+		{
+			int chance = rand() % 100;
+			if (chance < 30)
+			{
+				nodes[i][j]->isWalkable = false;
+				nodes[i][j]->rect.setFillColor(sf::Color::Black);
+			}
+		}
+	}
 }

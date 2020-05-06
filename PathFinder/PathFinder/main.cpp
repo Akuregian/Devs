@@ -6,58 +6,59 @@
 */
 
 #include <SFML/Graphics.hpp>
-#include<iostream>
+#include <SFML/Graphics.hpp>
 #include "Grid.h"
+
+bool startAlgorithm = false;
 
 int main()
 {
-	unsigned int click = 0;
-	bool startNodeSelected = false;
-	bool endNodeSelected = false;
-	sf::RenderWindow window(sf::VideoMode(1200, 1000), "SFML Pathdfinding!"); //1100, 755
-	std::unique_ptr<Grid> grid = std::make_unique<Grid>(ROWS_SIZE, COLS_SIZE, BLOCKSIZE, &window); // smart pointer
+    sf::RenderWindow window(sf::VideoMode(1000, 755), "SFML works!");
+    std::unique_ptr<Grid> grid = std::make_unique<Grid>(&window);
+    while (window.isOpen())
+    {
+        sf::Event event;
+        while (window.pollEvent(event))
+        {
+            if (event.type == sf::Event::Closed)
+            {
+                window.close();
+            }
 
-	while (window.isOpen())
-	{
-		sf::Event event;
-		while (window.pollEvent(event))
-		{
-			if (event.type == sf::Event::Closed)
-			{
-				window.close();
-			}
-			if (event.type == sf::Event::MouseButtonPressed)
-			{
-				if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
-				{
-					if (grid->StartButtonClicked())
-					{
-						grid->buttonToggle();
-					}
-					grid->isClicked();
-					grid->toggleNodePickup();
-				}
-			}
+            if (event.type == sf::Event::KeyPressed)
+            {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
+                {
+                    grid.reset();
+                    grid = std::make_unique<Grid>(&window);
+                    startAlgorithm = false;
+                }
 
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+                {
+                    startAlgorithm = true;
+                }
 
-			if (event.type == sf::Event::KeyPressed)
-			{
-				if (sf::Keyboard::isKeyPressed(sf::Keyboard::R))
-				{
-					std::cout << "Suppose to Reset the Game when this Key is Pressed" << std::endl;
-					grid.reset();
-				    grid = std::make_unique<Grid>(ROWS_SIZE, COLS_SIZE, BLOCKSIZE, &window); // smart pointer
-				}
-			}
-		}
-		if (grid->getbuttonState())
-		{
-			grid->aStarAlgorithm();
-		}
-		grid->display();
-		window.display();
-		window.clear();
-	}
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::G))
+                {
+                    grid->generateRandoCommandoMaze();
+                }
+            }
 
-	return 0;
+            if (event.type == sf::Event::MouseButtonPressed)
+            {
+                grid->mouseContains();
+            }
+        }
+
+        if (!grid->getFound() && startAlgorithm)
+        {
+            grid->A_Star_Algorithm();
+        }
+        grid->Display();
+        window.display();
+        window.clear();
+    }
+
+    return 0;
 }
